@@ -20,10 +20,10 @@ public class Member {
     this.password = password;
   }
 
-  @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
+  @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
   private List<Invoice> invoices = new ArrayList<>();
 
-  @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
+  @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
   private List<Booking> bookings = new ArrayList<>();
 
   public Member() {
@@ -49,5 +49,17 @@ public class Member {
   public void createInvoice(float total, int month, int year) {
     Invoice invoice = new Invoice(UtilDate.newDate(year, month, 1), total, this);
     invoices.add(invoice);
+  }
+
+  @Override
+  public String toString() {
+    return "Member{" +
+        "name='" + name + '\'' +
+        ", address='" + address + '\'' +
+        ", id=" + id +
+        ", password='" + password + '\'' +
+        ", invoices=" + invoices +
+        ", bookings=" + bookings +
+        '}';
   }
 }

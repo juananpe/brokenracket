@@ -58,4 +58,14 @@ public class UtilDate {
 		LocalDate localDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 		return localDate.getMonthValue();
   }
+
+	public static boolean sameDay(Date date1, Date date2) {
+		LocalDate ldate1 = date1.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+		LocalDate ldate2 = date2.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+
+		return ldate1.getYear() == ldate2.getYear() &&
+				ldate1.getMonthValue() == ldate2.getMonthValue() &&
+				ldate1.getDayOfMonth() == ldate2.getDayOfMonth() ;
+
+	}
 }

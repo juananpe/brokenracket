@@ -25,6 +25,11 @@ public class Booking {
     return this.status;
   }
 
+  public void setBook(Member member) {
+    this.member = member;
+    member.addBooking(this);
+  }
+
   public enum Status {
     FREE, OCCUPIED, CANCELLED, UNUSED;
   }
@@ -60,7 +65,7 @@ public class Booking {
       this.startingHour = startingHour;
       this.court = court;
       this.member = member;
-      this.status = Status.OCCUPIED;
+      this.status = member != null? Status.OCCUPIED: Status.FREE;
 
       if (startingHour >= 15 && startingHour <= 17) /* or weekend date */ {
         this.rate = Rate.R1;
@@ -68,7 +73,9 @@ public class Booking {
         this.rate = Rate.R2;
       }
 
-      member.addBooking(this);
+      if (member != null) member.addBooking(this);
+      court.addBooking(this);
+
   }
 
 
@@ -86,5 +93,16 @@ public class Booking {
     this.id = id;
   }
 
-
+  @Override
+  public String toString() {
+    return "Booking{" +
+        "id=" + id +
+        ", date=" + date +
+        ", startingHour=" + startingHour +
+        ", rate=" + rate +
+        ", status=" + status +
+        // ", member=" + member + //
+        ", court=" + court +
+        '}';
+  }
 }
