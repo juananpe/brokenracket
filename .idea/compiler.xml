@@ -9,8 +9,5 @@
         <module name="brokenracket" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="brokenracket" target="17" />
-    </bytecodeTargetLevel>
   </component>
 </project>
