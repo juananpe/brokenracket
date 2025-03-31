@@ -1,9 +1,9 @@
 package eus.ehu.brokenracket.domain;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
-import javax.persistence.OneToOne;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import java.util.Date;
 
 @Entity
@@ -104,5 +104,17 @@ public class Booking {
         // ", member=" + member + //
         ", court=" + court +
         '}';
+  }
+
+  public String getHour() {
+    return String.valueOf(startingHour);
+  }
+
+  public Member getMember() {
+    return member;
+  }
+
+  public Long getBookingID() {
+    return id;
   }
 }

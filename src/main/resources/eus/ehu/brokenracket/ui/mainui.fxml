@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="eus.ehu.brokenracket.ui.MainUIController"
+      spacing="10"
+      alignment="TOP_LEFT"
+      style="-fx-padding: 20;">
+
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <GridPane hgap="10" vgap="10">
+        <Label text="Select Court:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+        <ComboBox fx:id="courtComboBox" promptText="Select Court" GridPane.rowIndex="0" GridPane.columnIndex="1" minWidth="150"/>
+
+        <Label text="Select Date:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+        <DatePicker fx:id="datePicker" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+        <Button fx:id="findSlotsButton" text="Find Free Slots" onAction="#handleFindFreeSlotsAction" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+        <columnConstraints>
+            <ColumnConstraints halignment="RIGHT"/>
+            <ColumnConstraints hgrow="ALWAYS"/>
+        </columnConstraints>
+    </GridPane>
+
+    <Label text="Available Slots:"/>
+    <ListView fx:id="slotsListView" prefHeight="150.0"/>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Member Name:"/>
+        <TextField fx:id="memberNameInput" promptText="Enter member name" HBox.hgrow="ALWAYS"/>
+        <Button fx:id="bookSlotButton" text="Book Selected Slot" onAction="#handleBookSelectedSlotAction"/>
+    </HBox>
+
+    <Label fx:id="statusLabel" text="Status: Select Court and Date"/>
+
+</VBox> 

@@ -7,7 +7,6 @@ import eus.ehu.brokenracket.domain.Member;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Vector;
 
 /**
  * Interface that specifies the business logic.

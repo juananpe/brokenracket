@@ -2,7 +2,7 @@ package eus.ehu.brokenracket.domain;
 
 import eus.ehu.brokenracket.configuration.UtilDate;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,5 +61,13 @@ public class Member {
         ", invoices=" + invoices +
         ", bookings=" + bookings +
         '}';
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public Long getId() {
+    return id;
   }
 }

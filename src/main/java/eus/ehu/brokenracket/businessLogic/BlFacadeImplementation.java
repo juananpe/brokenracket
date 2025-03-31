@@ -1,6 +1,5 @@
 package eus.ehu.brokenracket.businessLogic;
 
-import eus.ehu.brokenracket.configuration.ConfigXML;
 import eus.ehu.brokenracket.dataAccess.DataAccess;
 import eus.ehu.brokenracket.domain.Booking;
 import eus.ehu.brokenracket.domain.Court;
@@ -16,7 +15,6 @@ import java.util.List;
 public class BlFacadeImplementation implements BlFacade {
 
 	DataAccess dbManager;
-	ConfigXML config = ConfigXML.getInstance();
 
 	private static BlFacadeImplementation bl = new BlFacadeImplementation();
 
@@ -27,7 +25,7 @@ public class BlFacadeImplementation implements BlFacade {
 	private BlFacadeImplementation()  {
 		System.out.println("Creating BlFacadeImplementation instance");
 		dbManager = new DataAccess();
-		dbManager.close();
+		// dbManager.close(); // Closing immediately after opening might not be intended here
 	}
 
 

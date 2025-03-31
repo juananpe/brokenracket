@@ -2,7 +2,7 @@ package eus.ehu.brokenracket.domain;
 
 import eus.ehu.brokenracket.configuration.UtilDate;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -39,5 +39,9 @@ public class Court {
       }
     }
     return res;
+  }
+
+  public String getNumber() {
+    return String.valueOf(id);
   }
 }

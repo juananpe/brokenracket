@@ -1,0 +1,194 @@
+package eus.ehu.brokenracket.ui;
+
+import eus.ehu.brokenracket.businessLogic.BlFacade;
+import eus.ehu.brokenracket.businessLogic.BlFacadeImplementation;
+import eus.ehu.brokenracket.domain.Booking;
+import eus.ehu.brokenracket.domain.Court;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+import javafx.util.StringConverter;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.List;
+
+public class MainUIController {
+
+    @FXML
+    private ComboBox<Court> courtComboBox;
+
+    @FXML
+    private DatePicker datePicker;
+
+    @FXML
+    private Button findSlotsButton; // Button reference
+
+    @FXML
+    private ListView<Booking> slotsListView;
+
+    @FXML
+    private TextField memberNameInput;
+
+    @FXML
+    private Button bookSlotButton; // Button reference
+
+    @FXML
+    private Label statusLabel;
+
+    private BlFacade blFacade;
+
+    // --- Simulate logged-in user --- 
+    // In a real app, this would come from a login service
+    private String loggedInMemberName = "Oihane"; // Example logged-in user
+    // You could also potentially store the full Member object if needed
+    // private Member loggedInMember;
+    // --- End simulation ---
+
+    private ObservableList<Court> courtList = FXCollections.observableArrayList();
+    private ObservableList<Booking> bookingList = FXCollections.observableArrayList();
+
+    @FXML
+    private void initialize() {
+        blFacade = BlFacadeImplementation.getInstance();
+
+        // Initialize ComboBox for courts
+        courtComboBox.setItems(courtList);
+        courtComboBox.setConverter(new StringConverter<Court>() {
+            @Override
+            public String toString(Court court) {
+                return court == null ? "" : "Court #" + court.getNumber();
+            }
+
+            @Override
+            public Court fromString(String string) {
+                // Not used for ComboBox selection directly
+                return null;
+            }
+        });
+
+        // Initialize ListView for bookings
+        slotsListView.setItems(bookingList);
+        slotsListView.setCellFactory(param -> new ListCell<Booking>() {
+            @Override
+            protected void updateItem(Booking booking, boolean empty) {
+                super.updateItem(booking, empty);
+                if (empty || booking == null) {
+                    setText(null);
+                } else {
+                    setText("Slot at " + booking.getHour() + ":00");
+                }
+            }
+        });
+
+        loadCourts();
+        datePicker.setValue(LocalDate.now());
+
+        // --- Pre-fill and disable member name input --- 
+        if (loggedInMemberName != null && !loggedInMemberName.isEmpty()) {
+            memberNameInput.setText(loggedInMemberName);
+            memberNameInput.setDisable(true); // Disable input as user is "logged in"
+            statusLabel.setText("Select Court and Date to find slots for " + loggedInMemberName);
+        } else {
+            memberNameInput.setDisable(false); // Enable if no simulated user
+            statusLabel.setText("Select Court and Date."); // Default status
+        }
+         // --- End pre-fill ---
+    }
+
+    private void loadCourts() {
+        // Clear any existing courts
+        courtList.clear();
+
+        // Create and add 5 Court objects
+        for (int i = 1; i <= 5; i++) {
+            // Assuming Court has a constructor that takes an integer number
+            // or some way to set its number. Adjust if the constructor is different.
+             try {
+                 // You might need to adjust the Court constructor call based on its actual definition
+                 courtList.add(new Court(i)); 
+             } catch (Exception e) {
+                 // Handle potential issues with Court creation if necessary
+                 // For now, print an error and potentially add a placeholder or skip
+                 System.err.println("Error creating Court object for number " + i + ": " + e.getMessage());
+                 // Optionally add a placeholder or handle differently
+                 // courtList.add(new Court(i, "Unavailable")); // Example placeholder if needed
+             }
+        }
+
+        // Select the first court by default if the list is not empty
+        if (!courtList.isEmpty()) {
+            courtComboBox.getSelectionModel().selectFirst();
+        }
+        // Optionally, update the status label if needed, though likely not necessary here
+        // statusLabel.setText("Loaded 5 courts."); 
+    }
+
+    @FXML
+    private void handleFindFreeSlotsAction() {
+        Court selectedCourt = courtComboBox.getSelectionModel().getSelectedItem();
+        LocalDate localDate = datePicker.getValue();
+
+        if (selectedCourt == null) {
+            statusLabel.setText("Please select a court.");
+            return;
+        }
+        if (localDate == null) {
+            statusLabel.setText("Please select a date.");
+            return;
+        }
+
+        Instant instant = Instant.from(localDate.atStartOfDay(ZoneId.systemDefault()));
+        Date selectedDate = Date.from(instant);
+
+        try {
+            statusLabel.setText("Finding slots...");
+            List<Booking> freeSlots = blFacade.getFreeBooks(selectedCourt, selectedDate);
+            bookingList.setAll(freeSlots);
+            statusLabel.setText(freeSlots.isEmpty() ? "No free slots found." : "Found " + freeSlots.size() + " free slots.");
+        } catch (Exception e) {
+            statusLabel.setText("Error finding slots: " + e.getMessage());
+            bookingList.clear();
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    private void handleBookSelectedSlotAction() {
+        Booking selectedBooking = slotsListView.getSelectionModel().getSelectedItem();
+        // String memberName = memberNameInput.getText(); // No longer read from input
+        String memberName = loggedInMemberName; // Use the simulated logged-in name
+
+        if (selectedBooking == null) {
+            statusLabel.setText("Please select a slot.");
+            return;
+        }
+        // No need to check if memberName is empty as it's pre-filled
+        /*
+        if (memberName == null || memberName.trim().isEmpty()) {
+            statusLabel.setText("Please enter member name."); // Should not happen now
+            return;
+        }
+        */
+        if (selectedBooking.getMember() != null) {
+            statusLabel.setText("Error: Slot already booked.");
+            handleFindFreeSlotsAction(); // Refresh list
+            return;
+        }
+
+        try {
+            statusLabel.setText("Booking slot for " + memberName + "...");
+            blFacade.setBook(memberName.trim(), selectedBooking);
+            statusLabel.setText("Slot booked successfully for " + memberName + "!");
+            // memberNameInput.clear(); // No need to clear
+            slotsListView.getSelectionModel().clearSelection();
+            handleFindFreeSlotsAction(); // Refresh list
+        } catch (Exception e) {
+            statusLabel.setText("Error booking slot: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+} 
