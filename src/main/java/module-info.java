@@ -4,6 +4,7 @@ module bookcourt.ui {
     requires javafx.graphics;
     requires jakarta.persistence;
     requires org.hibernate.orm.core;
+    requires com.h2database;
 
     opens eus.ehu.brokenracket.ui to javafx.fxml, javafx.graphics;
     opens eus.ehu.brokenracket.businessLogic to jakarta.persistence;

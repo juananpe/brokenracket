@@ -1,8 +1,11 @@
 package eus.ehu.brokenracket.domain;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import java.util.Date;
 
@@ -57,7 +60,10 @@ public class Booking {
   // normal rate R2 (for other hours)
   // fee R3 for canceled reservations
   // penalty R4 for unused reservations.
+  @Enumerated(EnumType.ORDINAL)
   private Rate rate;
+
+  @Enumerated(EnumType.ORDINAL)
   private Status status;
 
   public Booking(Date date, int startingHour, Court court, Member member){
@@ -79,10 +85,10 @@ public class Booking {
   }
 
 
-  @OneToOne
+  @ManyToOne
   private Member member;
 
-  @OneToOne
+  @ManyToOne
   private Court court;
 
   public Long getId() {
@@ -114,7 +120,21 @@ public class Booking {
     return member;
   }
 
+  public Court getCourt() {
+    return court;
+  }
+
   public Long getBookingID() {
     return id;
+  }
+
+  // Added getter for startingHour
+  public int getStartingHour() {
+    return startingHour;
+  }
+
+  // Add setter for status
+  public void setStatus(Status newStatus) {
+    this.status = newStatus;
   }
 }

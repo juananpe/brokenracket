@@ -28,20 +28,37 @@ public class Court {
     bookings.add(booking);
   }
 
+  // Method to clear the bookings collection (e.g., for DB initialization)
+  public void clearBookings() {
+    this.bookings.clear();
+  }
+
   public List<Booking> getFreeBooks(Date bookDate) {
     List<Booking> res = new ArrayList<>();
+    System.out.println("[Court] getFreeBooks called for Date: " + bookDate);
+    System.out.println("[Court] Current bookings associated with this Court object (size = " + bookings.size() + "): " + bookings);
+    int count = 0;
     for (Booking booking : bookings) {
-      if (UtilDate.sameDay(booking.getDate(), bookDate)) {
-        if (booking.getStatus() == Booking.Status.FREE ||
-            booking.getStatus() == Booking.Status.CANCELLED) {
+      boolean sameDay = UtilDate.sameDay(booking.getDate(), bookDate);
+      boolean isFreeOrCancelled = booking.getStatus() == Booking.Status.FREE || booking.getStatus() == Booking.Status.CANCELLED;
+      System.out.println("[Court] Checking booking ID " + booking.getId() + " for date " + booking.getDate() + ": sameDay? " + sameDay + ", isFreeOrCancelled? " + isFreeOrCancelled);
+      if (sameDay) {
+        if (isFreeOrCancelled) {
                 res.add(booking);
+                count++;
+                System.out.println("[Court]   -> Added booking ID " + booking.getId() + " to results.");
         }
       }
     }
+    System.out.println("[Court] Returning " + count + " free/cancelled bookings found in the list.");
     return res;
   }
 
   public String getNumber() {
     return String.valueOf(id);
+  }
+
+  public Integer getId() {
+    return id;
   }
 }

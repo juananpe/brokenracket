@@ -34,6 +34,11 @@ public class Member {
     bookings.add(b);
   }
 
+  // Method to clear the bookings collection
+  public void clearBookings() {
+    this.bookings.clear();
+  }
+
   public List<Booking> getBookings(int month) {
     List<Booking> result = new ArrayList<>();
 

@@ -1,6 +1,5 @@
 package eus.ehu.brokenracket.dataAccess;
 
-import eus.ehu.brokenracket.businessLogic.BlFacadeImplementation;
 import eus.ehu.brokenracket.configuration.AppConfig;
 import eus.ehu.brokenracket.configuration.UtilDate;
 import eus.ehu.brokenracket.domain.Booking;
@@ -9,15 +8,10 @@ import eus.ehu.brokenracket.domain.Member;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
-// import jakarta.persistence.Persistence; // No longer using standard Persistence bootstrap
 import jakarta.persistence.TypedQuery;
-import jakarta.persistence.NoResultException; // Import if needed for specific queries
+import jakarta.persistence.NoResultException;
 
 // Hibernate imports
-import org.hibernate.Session; // Hibernate Session is often used directly or via casting EntityManager
-import org.hibernate.SessionFactory;
-import org.hibernate.cfg.Configuration;
-import org.hibernate.service.ServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.boot.MetadataSources;
@@ -35,6 +29,8 @@ public class DataAccess {
     protected EntityManagerFactory emf; // Standard JPA EMF (Hibernate SessionFactory implements this)
 
     AppConfig config = AppConfig.getInstance();
+    
+    private boolean manuallyClosedDb = false;
     
     public DataAccess() {
         // Determine initializeMode based on config's openMode (e.g., for triggering data generation)
@@ -92,8 +88,27 @@ public class DataAccess {
         }
         db.getTransaction().begin();
         try {
-            // It's generally safer to clear existing data if initializing
-            // Note: This might be redundant if hbm2ddl.auto is create or create-drop
+            // 1. Clear Court-Booking relationships first to avoid constraint violations
+            System.out.println("Clearing Court-Booking relationships...");
+            List<Court> courts = db.createQuery("SELECT c FROM Court c", Court.class).getResultList();
+            for (Court court : courts) {
+                court.clearBookings(); // Use the new method to clear the collection
+                db.merge(court); // Update the court entity to remove associations in join table
+            }
+            db.flush(); // Ensure changes are pushed to the database
+            System.out.println("Court-Booking relationships cleared.");
+
+            // 2. Clear Member-Booking relationships
+            System.out.println("Clearing Member-Booking relationships...");
+            List<Member> members = db.createQuery("SELECT m FROM Member m", Member.class).getResultList();
+            for (Member member : members) {
+                member.clearBookings(); // Use the new method
+                db.merge(member); // Update the member entity
+            }
+            db.flush(); // Ensure changes are pushed to the database
+            System.out.println("Member-Booking relationships cleared.");
+
+            // 3. Now delete entities in the correct order
             System.out.println("Clearing existing Booking data...");
             db.createQuery("DELETE FROM Booking").executeUpdate();
              System.out.println("Clearing existing Member data...");
@@ -102,6 +117,9 @@ public class DataAccess {
             db.createQuery("DELETE FROM Court").executeUpdate();
             db.getTransaction().commit(); // Commit deletions before inserting
 
+            // Clear the persistence context to remove any cached entities
+            db.clear();
+            
             db.getTransaction().begin(); // Start new transaction for inserts
             System.out.println("Generating test data...");
             generateTestingData();
@@ -124,12 +142,15 @@ public class DataAccess {
         Member aitor = new Member("Aitor", "c/ Esperanza 14", "678999999");
 
         // initialize courts
-        final int COURTNUM = 3;
+        final int COURTNUM = 5;
         Court[] courts = new Court[COURTNUM];
         for (int court = 0; court < COURTNUM; court++) {
             courts[court] = new Court(court);
             db.persist(courts[court]);
         }
+
+        // For debugging - track occupied bookings for April 27, 2025
+        List<String> apr27Bookings = new ArrayList<>();
 
         // Generate free slots for all courts, month April
         for (int court = 0; court < COURTNUM; court++) {
@@ -137,10 +158,16 @@ public class DataAccess {
                 for (int hour = 9; hour < 18; hour++) {
                     Booking booking;
                     // Oihane wants to book a court for April/27 and April/28
-                    if (court == 0 && ((day == 27 && hour == 15) || (day == 28 && hour == 10))) {
-                         booking = new Booking(UtilDate.newDate(2022, 4, day), hour, courts[court], oihane);
+                    if ((court == 0 && ((day == 27 && hour == 15) || (day == 28 && hour == 10))) ||
+                        (court == 1 && day == 27 && hour == 16)) {
+                         booking = new Booking(UtilDate.newDate(2025, 4, day), hour, courts[court], oihane);
+                         
+                         // Debug for April 27
+                         if (day == 27) {
+                             apr27Bookings.add("Booked: Court " + court + ", Hour " + hour + ", Status: " + booking.getStatus());
+                         }
                     } else {
-                         booking = new Booking(UtilDate.newDate(2022, 4, day), hour, courts[court], null /* free slot */);
+                         booking = new Booking(UtilDate.newDate(2025, 4, day), hour, courts[court], null /* free slot */);
                     }
                     db.persist(booking); // Persist each booking
                 }
@@ -149,11 +176,24 @@ public class DataAccess {
 
         db.persist(oihane);
         db.persist(aitor);
+        
+        // Print debug info for April 27 bookings
+        System.out.println("\n=== INITIALIZATION: APRIL 27, 2025 BOOKINGS ===");
+        System.out.println("Bookings created for Oihane: " + apr27Bookings);
+        System.out.println("Expected occupied slots for April 27: Court 0, Hour 15 and Court 1, Hour 16");
+        System.out.println("=================================================\n");
+        
         System.out.println("Finished persisting test data.");
     }
 
     public void close() {
+        if (manuallyClosedDb) {
+            System.out.println("DataAccess already closed, skipping...");
+            return;
+        }
+        
         System.out.println("Closing DataAccess resources...");
+        manuallyClosedDb = true;
         if (db != null && db.isOpen()) {
             try {
               db.close();
@@ -248,24 +288,147 @@ public class DataAccess {
 
         db.getTransaction().begin();
         try {
-            // It's crucial to work with the managed instance of the Booking
-            Booking persistentBooking = db.find(Booking.class, book.getBookingID());
-            if (persistentBooking == null) {
-                 throw new IllegalArgumentException("Booking not found in database: " + book.getBookingID());
+            // Check if this is a transient booking object (from free slots list)
+            if (book.getBookingID() == null) {
+                // This is a transient booking (free slot) from the UI
+                System.out.println("[DataAccess] Creating new booking for free slot: Date=" + book.getDate() + 
+                                  ", Hour=" + book.getStartingHour() + ", Court=" + book.getCourt().getNumber());
+                
+                // First, check if a booking already exists for this court, date, and hour
+                // Use a simplified native query to avoid JPQL function problems
+                String nativeQuery = "SELECT * FROM Booking b WHERE b.court_id = ? " +
+                                    "AND b.startingHour = ? " +
+                                    "AND YEAR(b.date) = ? " +
+                                    "AND MONTH(b.date) = ? " +
+                                    "AND DAY(b.date) = ?";
+                
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(book.getDate());
+                int year = cal.get(Calendar.YEAR);
+                int month = cal.get(Calendar.MONTH) + 1; // Calendar months are 0-based
+                int day = cal.get(Calendar.DAY_OF_MONTH);
+                
+                @SuppressWarnings("unchecked")
+                List<Booking> existingBookings = db.createNativeQuery(nativeQuery, Booking.class)
+                    .setParameter(1, book.getCourt().getId())
+                    .setParameter(2, book.getStartingHour())
+                    .setParameter(3, year)
+                    .setParameter(4, month)
+                    .setParameter(5, day)
+                    .getResultList();
+                
+                Booking persistentBooking;
+                if (!existingBookings.isEmpty()) {
+                    // Use the existing booking
+                    persistentBooking = existingBookings.get(0);
+                    if (persistentBooking.getMember() != null) {
+                        throw new IllegalStateException("Selected slot is already booked by " + 
+                                                      persistentBooking.getMember().getName());
+                    }
+                } else {
+                    // Create a new booking record
+                    persistentBooking = new Booking(book.getDate(), book.getStartingHour(), 
+                                                   book.getCourt(), null);
+                    db.persist(persistentBooking);
+                }
+                
+                // Now assign the member to the booking
+                persistentBooking.setBook(member);
+                // Explicitly set status to OCCUPIED
+                persistentBooking.setStatus(Booking.Status.OCCUPIED);
+                
+            } else {
+                // Original code for managed bookings with IDs
+                Booking persistentBooking = db.find(Booking.class, book.getBookingID());
+                if (persistentBooking == null) {
+                     throw new IllegalArgumentException("Booking not found in database: " + book.getBookingID());
+                }
+                if(persistentBooking.getMember() != null) {
+                    throw new IllegalStateException("Selected booking is already assigned to " + persistentBooking.getMember().getName());
+                }
+                persistentBooking.setBook(member);
+                // Explicitly set status to OCCUPIED
+                persistentBooking.setStatus(Booking.Status.OCCUPIED);
             }
-            if(persistentBooking.getMember() != null) {
-                throw new IllegalStateException("Selected booking is already assigned to " + persistentBooking.getMember().getName());
-            }
-            persistentBooking.setBook(member);
-            // member should already be managed if fetched previously
-            // persistentBooking is managed because we used find()
+            
             db.getTransaction().commit();
+            System.out.println("[DataAccess] Booking set successfully for member: " + name);
+            
         } catch (Exception e) {
             if (db.getTransaction().isActive()) {
                  db.getTransaction().rollback();
             }
             System.err.println("Error setting book: " + e.getMessage());
             throw e;
+        }
+    }
+
+    /**
+     * Finds bookings for a specific court on a specific date.
+     * Note: Compares the date part only, ignoring time.
+     * @param court The court entity.
+     * @param date The date to search for.
+     * @return A list of bookings for that court and date.
+     */
+    public List<Booking> getBookingsByCourtAndDate(Court court, Date date) {
+        System.out.println("[DataAccess] Fetching bookings for Court #: " + court.getNumber() + " on Date: " + date);
+
+        // Create a new EntityManager specifically for this query to avoid connection issues
+        EntityManager localEm = null;
+        try {
+            if (emf == null || !emf.isOpen()) {
+                System.err.println("[DataAccess] EntityManagerFactory is not available. Cannot query bookings.");
+                return Collections.emptyList();
+            }
+            
+            localEm = emf.createEntityManager();
+            localEm.getTransaction().begin();
+            
+            // Extract year, month, day from the input date
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(date);
+            int year = cal.get(Calendar.YEAR);
+            int month = cal.get(Calendar.MONTH) + 1; // Calendar.MONTH is 0-based
+            int day = cal.get(Calendar.DAY_OF_MONTH);
+            
+            // Use native SQL query to avoid complex JPQL with functions
+            String sql = "SELECT * FROM Booking b WHERE b.court_id = ? " +
+                         "AND YEAR(b.date) = ? AND MONTH(b.date) = ? AND DAY(b.date) = ?";
+            
+            @SuppressWarnings("unchecked")
+            List<Booking> bookings = localEm.createNativeQuery(sql, Booking.class)
+                .setParameter(1, court.getNumber())
+                .setParameter(2, year)
+                .setParameter(3, month)
+                .setParameter(4, day)
+                .getResultList();
+            
+            // Commit transaction
+            localEm.getTransaction().commit();
+            
+            System.out.println("[DataAccess] Found " + bookings.size() + " bookings for Court #" + court.getNumber() + " on " + date);
+            
+            // Debug output
+            for (Booking b : bookings) {
+                System.out.println("[DataAccess]   - Booking: ID=" + b.getId() + 
+                                   ", Hour=" + b.getStartingHour() + 
+                                   ", Status=" + b.getStatus() + 
+                                   ", Member=" + (b.getMember() != null ? b.getMember().getName() : "null"));
+            }
+            
+            return bookings;
+        } catch (Exception e) {
+            System.err.println("[DataAccess] Error fetching bookings: " + e.getMessage());
+            e.printStackTrace();
+            if (localEm != null && localEm.getTransaction().isActive()) {
+                localEm.getTransaction().rollback();
+            }
+            return Collections.emptyList();
+        } finally {
+            if (localEm != null && localEm.isOpen()) {
+                localEm.close();
+                System.out.println("[DataAccess] Local EntityManager closed");
+            }
         }
     }
 }
