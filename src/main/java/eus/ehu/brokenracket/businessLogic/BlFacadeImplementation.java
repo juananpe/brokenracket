@@ -80,52 +80,24 @@ public class BlFacadeImplementation implements BlFacade {
 	public List<Booking> getFreeBooks(Court court, Date bookDate) {
 		System.out.println("[Facade] Getting free books for Court #: " + court.getNumber() + " on Date: " + bookDate);
 
-		// 1. Define possible booking hours (e.g., 9 AM to 5 PM)
-		final int START_HOUR = 9;
-		final int END_HOUR = 17; // Includes 17:00
-
-		// 2. Get actual bookings for this court and date from the database
-		// No need to open/close DB connection - handled inside DataAccess
-		List<Booking> actualBookings = dbManager.getBookingsByCourtAndDate(court, bookDate);
+		// Simplified approach: directly get free bookings from the database
+		List<Booking> freeBookings = dbManager.getFreeBookingsByCourtAndDate(court, bookDate);
 		
-		System.out.println("[Facade] Found " + actualBookings.size() + " actual bookings in DB for this court/date.");
-		// Log the details of actual bookings found
-		System.out.println("[Facade] === DETAILED BOOKING INFO ===");
-		for (Booking b : actualBookings) {
-			System.out.println("  Booking ID: " + b.getId() + 
-					   ", Date: " + b.getDate() + 
-					   ", Hour: " + b.getStartingHour() + 
-					   ", Status: " + b.getStatus() + 
-					   ", Member: " + (b.getMember() != null ? b.getMember().getName() : "null"));
-		}
-		System.out.println("[Facade] ==========================");
-
-		// 3. Create a set of booked hours (only include if status is OCCUPIED)
-		Set<Integer> bookedHours = actualBookings.stream()
-			.filter(b -> {
-				boolean isOccupied = b.getStatus() == Booking.Status.OCCUPIED;
-				System.out.println("[Facade] Filtering booking ID " + b.getId() + ": Status=" + b.getStatus() + ", IsOccupied=" + isOccupied);
-				return isOccupied;
-			})
-			.map(Booking::getStartingHour)
-			.collect(Collectors.toSet());
-
-		System.out.println("[Facade] Hours booked (Occupied): " + bookedHours);
-
-		// 4. Generate the list of free slots
-		List<Booking> freeSlots = new ArrayList<>();
-		for (int hour = START_HOUR; hour <= END_HOUR; hour++) {
-			if (!bookedHours.contains(hour)) {
-				// This hour is free, create a representative Booking object using the constructor
-				// Pass null for Member to indicate a free slot
-				Booking freeSlot = new Booking(bookDate, hour, court, null);
-				// The constructor already sets Status to FREE and calculates Rate
-				freeSlots.add(freeSlot);
+		System.out.println("[Facade] Found " + freeBookings.size() + " free bookings directly from DB.");
+		
+		// Log the details of free bookings found
+		if (!freeBookings.isEmpty()) {
+			System.out.println("[Facade] === FREE BOOKINGS DETAILS ===");
+			for (Booking b : freeBookings) {
+				System.out.println("  Free Booking ID: " + b.getId() + 
+						   ", Date: " + b.getDate() + 
+						   ", Hour: " + b.getStartingHour() + 
+						   ", Status: " + b.getStatus());
 			}
+			System.out.println("[Facade] ============================");
 		}
 
-		System.out.println("[Facade] Calculated " + freeSlots.size() + " free slots.");
-		return freeSlots;
+		return freeBookings;
 	}
 
 	@Override

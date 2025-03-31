@@ -431,4 +431,65 @@ public class DataAccess {
             }
         }
     }
+
+    /**
+     * Finds free bookings for a specific court on a specific date.
+     * @param court The court entity.
+     * @param date The date to search for.
+     * @return A list of free bookings for that court and date.
+     */
+    public List<Booking> getFreeBookingsByCourtAndDate(Court court, Date date) {
+        System.out.println("[DataAccess] Fetching FREE bookings for Court #: " + court.getNumber() + " on Date: " + date);
+
+        // Create a new EntityManager specifically for this query to avoid connection issues
+        EntityManager localEm = null;
+        try {
+            if (emf == null || !emf.isOpen()) {
+                System.err.println("[DataAccess] EntityManagerFactory is not available. Cannot query bookings.");
+                return Collections.emptyList();
+            }
+            
+            localEm = emf.createEntityManager();
+            localEm.getTransaction().begin();
+            
+            // Extract year, month, day from the input date
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(date);
+            int year = cal.get(Calendar.YEAR);
+            int month = cal.get(Calendar.MONTH) + 1; // Calendar.MONTH is 0-based
+            int day = cal.get(Calendar.DAY_OF_MONTH);
+            
+            // Use native SQL query to retrieve only FREE bookings
+            String sql = "SELECT * FROM Booking b WHERE b.court_id = ? " +
+                         "AND YEAR(b.date) = ? AND MONTH(b.date) = ? AND DAY(b.date) = ? " +
+                         "AND b.status = 0"; // 0 is the ordinal value for Status.FREE
+            
+            @SuppressWarnings("unchecked")
+            List<Booking> freeBookings = localEm.createNativeQuery(sql, Booking.class)
+                .setParameter(1, court.getNumber())
+                .setParameter(2, year)
+                .setParameter(3, month)
+                .setParameter(4, day)
+                .getResultList();
+            
+            // Commit transaction
+            localEm.getTransaction().commit();
+            
+            System.out.println("[DataAccess] Found " + freeBookings.size() + " FREE bookings for Court #" + court.getNumber() + " on " + date);
+            
+            return freeBookings;
+        } catch (Exception e) {
+            System.err.println("[DataAccess] Error fetching free bookings: " + e.getMessage());
+            e.printStackTrace();
+            if (localEm != null && localEm.getTransaction().isActive()) {
+                localEm.getTransaction().rollback();
+            }
+            return Collections.emptyList();
+        } finally {
+            if (localEm != null && localEm.isOpen()) {
+                localEm.close();
+                System.out.println("[DataAccess] Local EntityManager closed");
+            }
+        }
+    }
 }
