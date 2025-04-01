@@ -1,0 +1,35 @@
+@startuml
+left to right direction
+
+' Define style for the Highlighted stereotype
+skinparam usecase<<Book Court>> {
+    BackgroundColor LightBlue
+    BorderColor Blue
+}
+
+actor User
+actor Member
+actor Employee
+actor Clock
+
+User <|-- Member
+User <|-- Employee
+
+rectangle "Tennis court booking system" {
+  usecase "Login" as UC1
+  ' Apply the Highlighted stereotype to this use case
+  usecase " " as UC2 <<Book Court>>
+  usecase "Cancel Booking" as UC3
+  usecase "Print Invoices" as UC4
+  usecase "Record Unused Booking" as UC5
+  usecase "Print Monthly Invoices" as UC6
+}
+
+User -- UC1
+Member -- UC2
+Member -- UC3
+Employee -- UC4
+Employee -- UC5
+Clock -- UC6
+
+@enduml
