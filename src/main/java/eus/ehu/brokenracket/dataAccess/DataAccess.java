@@ -16,6 +16,9 @@ import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.boot.MetadataSources;
 
+// Logger imports
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.*;
 
@@ -25,6 +28,8 @@ import java.util.*;
  */
 public class DataAccess {
 
+    private static final Logger logger = LogManager.getLogger(DataAccess.class);
+    
     protected EntityManager db; // Standard JPA EntityManager
     protected EntityManagerFactory emf; // Standard JPA EMF (Hibernate SessionFactory implements this)
 
@@ -33,24 +38,27 @@ public class DataAccess {
     private boolean manuallyClosedDb = false;
     
     public DataAccess() {
-        // Determine initializeMode based on config's openMode (e.g., for triggering data generation)
-        boolean initialize = config.getDataBaseOpenMode().equalsIgnoreCase("initialize");
-        this.open(initialize); // Call open with the initialization flag
+        // Just open the DB connection - no initialization
+        this.open();
+        
+        // Check if we need to initialize the DB based on config
+        if (config.getDataBaseOpenMode().equalsIgnoreCase("initialize")) {
+            initializeDB();
+        }
 
         // Add shutdown hook to close database when application exits
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Shutdown Hook: Closing database connection...");
+            logger.info("Shutdown Hook: Closing database connection...");
             this.close();
         }));
     }
 
     /**
      * Opens the database connection using Hibernate configuration.
-     * Relies on hibernate.cfg.xml for connection details and schema management (hbm2ddl.auto).
-     * @param initializeMode If true, triggers database initialization (data generation).
+     * Relies on hibernate.cfg.xml for connection details and schema management.
      */
-    public void open(boolean initializeMode) {
-        System.out.println("Opening Hibernate DataAccess (Simplified). Mode: " + (initializeMode ? "Initialize" : "Open"));
+    public void open() {
+        logger.info("Opening Hibernate DataAccess connection...");
 
         final StandardServiceRegistry registry = new StandardServiceRegistryBuilder()
                 .configure() // configures settings from hibernate.cfg.xml by default
@@ -60,17 +68,11 @@ public class DataAccess {
             this.emf = new MetadataSources(registry).buildMetadata().buildSessionFactory();
             // Create JPA EntityManager
             this.db = emf.createEntityManager();
-            System.out.println("Hibernate EntityManager created successfully from SessionFactory.");
-
-             // Perform data initialization *if* requested and EntityManager was created successfully
-            if (initializeMode) {
-               initializeDB();
-            }
-
+            logger.info("Hibernate EntityManager created successfully from SessionFactory.");
         } catch (Exception e) {
             // The registry would be destroyed by the SessionFactory, but we had trouble building it
             // so destroy the registry manually.
-            System.err.println("!!! Error building SessionFactory: " + e.getMessage());
+            logger.error("!!! Error building SessionFactory: " + e.getMessage());
             e.printStackTrace();
             StandardServiceRegistryBuilder.destroy(registry);
             throw new RuntimeException("Failed to initialize Hibernate SessionFactory", e); // Re-throw
@@ -81,39 +83,39 @@ public class DataAccess {
      * Initializes the database with test data. Assumes schema is managed by hbm2ddl.auto in hibernate.cfg.xml.
      */
     public void initializeDB() {
-        System.out.println("Initializing DB with test data (schema managed by Hibernate cfg)...");
+        logger.info("Initializing DB with test data (schema managed by Hibernate cfg)...");
         if (db == null || !db.isOpen()) {
-             System.err.println("Cannot initialize DB, EntityManager is not open.");
+             logger.error("Cannot initialize DB, EntityManager is not open.");
              return;
         }
         db.getTransaction().begin();
         try {
             // 1. Clear Court-Booking relationships first to avoid constraint violations
-            System.out.println("Clearing Court-Booking relationships...");
+            logger.info("Clearing Court-Booking relationships...");
             List<Court> courts = db.createQuery("SELECT c FROM Court c", Court.class).getResultList();
             for (Court court : courts) {
                 court.clearBookings(); // Use the new method to clear the collection
                 db.merge(court); // Update the court entity to remove associations in join table
             }
             db.flush(); // Ensure changes are pushed to the database
-            System.out.println("Court-Booking relationships cleared.");
+            logger.info("Court-Booking relationships cleared.");
 
             // 2. Clear Member-Booking relationships
-            System.out.println("Clearing Member-Booking relationships...");
+            logger.info("Clearing Member-Booking relationships...");
             List<Member> members = db.createQuery("SELECT m FROM Member m", Member.class).getResultList();
             for (Member member : members) {
                 member.clearBookings(); // Use the new method
                 db.merge(member); // Update the member entity
             }
             db.flush(); // Ensure changes are pushed to the database
-            System.out.println("Member-Booking relationships cleared.");
+            logger.info("Member-Booking relationships cleared.");
 
             // 3. Now delete entities in the correct order
-            System.out.println("Clearing existing Booking data...");
+            logger.info("Clearing existing Booking data...");
             db.createQuery("DELETE FROM Booking").executeUpdate();
-             System.out.println("Clearing existing Member data...");
+             logger.info("Clearing existing Member data...");
             db.createQuery("DELETE FROM Member").executeUpdate();
-             System.out.println("Clearing existing Court data...");
+             logger.info("Clearing existing Court data...");
             db.createQuery("DELETE FROM Court").executeUpdate();
             db.getTransaction().commit(); // Commit deletions before inserting
 
@@ -121,16 +123,16 @@ public class DataAccess {
             db.clear();
             
             db.getTransaction().begin(); // Start new transaction for inserts
-            System.out.println("Generating test data...");
+            logger.info("Generating test data...");
             generateTestingData();
             db.getTransaction().commit();
-            System.out.println("Test data generated and committed.");
+            logger.info("Test data generated and committed.");
 
         } catch (Exception e) {
             if (db.getTransaction().isActive()) {
                 db.getTransaction().rollback();
             }
-            System.err.println("Error during DB initialization: " + e.getMessage());
+            logger.error("Error during DB initialization: " + e.getMessage());
             e.printStackTrace();
             // Decide if this should halt the application or just log
         }
@@ -178,36 +180,36 @@ public class DataAccess {
         db.persist(aitor);
         
         // Print debug info for April 27 bookings
-        System.out.println("\n=== INITIALIZATION: APRIL 27, 2025 BOOKINGS ===");
-        System.out.println("Bookings created for Oihane: " + apr27Bookings);
-        System.out.println("Expected occupied slots for April 27: Court 0, Hour 15 and Court 1, Hour 16");
-        System.out.println("=================================================\n");
+        logger.info("\n=== INITIALIZATION: APRIL 27, 2025 BOOKINGS ===");
+        logger.info("Bookings created for Oihane: " + apr27Bookings);
+        logger.info("Expected occupied slots for April 27: Court 0, Hour 15 and Court 1, Hour 16");
+        logger.info("=================================================\n");
         
-        System.out.println("Finished persisting test data.");
+        logger.info("Finished persisting test data.");
     }
 
     public void close() {
         if (manuallyClosedDb) {
-            System.out.println("DataAccess already closed, skipping...");
+            logger.info("DataAccess already closed, skipping...");
             return;
         }
         
-        System.out.println("Closing DataAccess resources...");
+        logger.info("Closing DataAccess resources...");
         manuallyClosedDb = true;
         if (db != null && db.isOpen()) {
             try {
               db.close();
-              System.out.println("EntityManager closed.");
+              logger.info("EntityManager closed.");
             } catch (Exception e) {
-              System.err.println("Error closing EntityManager: " + e.getMessage());
+              logger.error("Error closing EntityManager: " + e.getMessage());
             }
         }
         if (emf != null && emf.isOpen()) {
             try {
               emf.close(); // Close the EntityManagerFactory (SessionFactory)
-              System.out.println("EntityManagerFactory closed.");
+              logger.info("EntityManagerFactory closed.");
             } catch (Exception e) {
-              System.err.println("Error closing EntityManagerFactory: " + e.getMessage());
+              logger.error("Error closing EntityManagerFactory: " + e.getMessage());
             }
         }
     }
@@ -221,7 +223,7 @@ public class DataAccess {
                  // merge might not be needed if managedMember was fetched in the transaction
                  // db.merge(managedMember);
             } else {
-                 System.err.println("Cannot create invoice, member not found: " + member.getId());
+                 logger.error("Cannot create invoice, member not found: " + member.getId());
                  // Handle error appropriately
             }
             db.getTransaction().commit();
@@ -229,22 +231,22 @@ public class DataAccess {
             if (db.getTransaction().isActive()) {
                  db.getTransaction().rollback();
             }
-            System.err.println("Error creating invoice: " + e.getMessage());
+            logger.error("Error creating invoice: " + e.getMessage());
             throw e;
         }
     }
 
     // The main method is primarily for testing DataAccess itself.
     public static void main(String[] args) {
-        System.out.println("Running DataAccess main for testing...");
-        // Let constructor handle opening based on config
+        logger.info("Running DataAccess main for testing...");
+        // Create new DataAccess - constructor handles opening and initialization based on config
         DataAccess da = new DataAccess();
         try {
             // Example: fetch courts
             List<Court> courts = da.getCourts();
-            System.out.println("Found " + courts.size() + " courts.");
+            logger.info("Found " + courts.size() + " courts.");
             for(Court c : courts) {
-                System.out.println("  - " + c);
+                logger.info("  - " + c);
             }
 
             // Example: Try finding a member (if data was initialized)
@@ -253,19 +255,19 @@ public class DataAccess {
                     "SELECT m FROM Member m WHERE m.name = ?1", Member.class);
                  memberQuery.setParameter(1, "Oihane"); // Example name
                  Member oihane = memberQuery.getSingleResult();
-                 System.out.println("Found member: " + oihane.getName());
+                 logger.info("Found member: " + oihane.getName());
             } catch (NoResultException e) {
-                 System.out.println("Member 'Oihane' not found (maybe DB not initialized?).");
+                 logger.info("Member 'Oihane' not found (maybe DB not initialized?).");
             }
 
         } catch(Exception e) {
-            System.err.println("Error in DataAccess main method: " + e.getMessage());
+            logger.error("Error in DataAccess main method: " + e.getMessage());
             e.printStackTrace();
         } finally {
-             // Shutdown hook will call close, but explicit close here is fine too for main test
+             // Explicit close for testing purposes
              da.close();
         }
-        System.out.println("DataAccess main finished.");
+        logger.info("DataAccess main finished.");
     }
 
     public List<Court> getCourts() {
@@ -282,85 +284,90 @@ public class DataAccess {
              memberQuery.setParameter(1, name);
              member = memberQuery.getSingleResult();
         } catch (NoResultException e) {
-             System.err.println("Cannot set book, member not found: " + name);
+             logger.error("Cannot set book, member not found: " + name);
              throw new IllegalArgumentException("Member with name '" + name + "' not found.", e);
         }
 
         db.getTransaction().begin();
         try {
-            // Check if this is a transient booking object (from free slots list)
+            Booking persistentBooking;
+            
+            // Handle both transient and managed booking cases
             if (book.getBookingID() == null) {
-                // This is a transient booking (free slot) from the UI
-                System.out.println("[DataAccess] Creating new booking for free slot: Date=" + book.getDate() + 
+                // Transient booking (free slot) from UI
+                logger.info("********** Processing booking for free slot: Date=" + book.getDate() + 
                                   ", Hour=" + book.getStartingHour() + ", Court=" + book.getCourt().getNumber());
                 
-                // First, check if a booking already exists for this court, date, and hour
-                // Use a simplified native query to avoid JPQL function problems
-                String nativeQuery = "SELECT * FROM Booking b WHERE b.court_id = ? " +
-                                    "AND b.startingHour = ? " +
-                                    "AND YEAR(b.date) = ? " +
-                                    "AND MONTH(b.date) = ? " +
-                                    "AND DAY(b.date) = ?";
+                // Find existing booking by court/date/hour
+                persistentBooking = findBookingByCourtDateHour(book.getCourt(), book.getDate(), book.getStartingHour());
                 
-                Calendar cal = Calendar.getInstance();
-                cal.setTime(book.getDate());
-                int year = cal.get(Calendar.YEAR);
-                int month = cal.get(Calendar.MONTH) + 1; // Calendar months are 0-based
-                int day = cal.get(Calendar.DAY_OF_MONTH);
-                
-                @SuppressWarnings("unchecked")
-                List<Booking> existingBookings = db.createNativeQuery(nativeQuery, Booking.class)
-                    .setParameter(1, book.getCourt().getId())
-                    .setParameter(2, book.getStartingHour())
-                    .setParameter(3, year)
-                    .setParameter(4, month)
-                    .setParameter(5, day)
-                    .getResultList();
-                
-                Booking persistentBooking;
-                if (!existingBookings.isEmpty()) {
-                    // Use the existing booking
-                    persistentBooking = existingBookings.get(0);
-                    if (persistentBooking.getMember() != null) {
-                        throw new IllegalStateException("Selected slot is already booked by " + 
-                                                      persistentBooking.getMember().getName());
-                    }
-                } else {
-                    // Create a new booking record
+                if (persistentBooking == null) {
+                    // Create a new booking record if none exists
                     persistentBooking = new Booking(book.getDate(), book.getStartingHour(), 
                                                    book.getCourt(), null);
                     db.persist(persistentBooking);
                 }
-                
-                // Now assign the member to the booking
-                persistentBooking.setBook(member);
-                // Explicitly set status to OCCUPIED
-                persistentBooking.setStatus(Booking.Status.OCCUPIED);
-                
             } else {
-                // Original code for managed bookings with IDs
-                Booking persistentBooking = db.find(Booking.class, book.getBookingID());
+                // Managed booking with ID
+                logger.info("********** Processing booking for managed slot: ID=" + book.getBookingID());
+                persistentBooking = db.find(Booking.class, book.getBookingID());
                 if (persistentBooking == null) {
                      throw new IllegalArgumentException("Booking not found in database: " + book.getBookingID());
                 }
-                if(persistentBooking.getMember() != null) {
-                    throw new IllegalStateException("Selected booking is already assigned to " + persistentBooking.getMember().getName());
-                }
-                persistentBooking.setBook(member);
-                // Explicitly set status to OCCUPIED
-                persistentBooking.setStatus(Booking.Status.OCCUPIED);
             }
             
+            // Common validation and assignment for both cases
+            if (persistentBooking.getMember() != null) {
+                throw new IllegalStateException("Selected slot is already booked by " + 
+                                               persistentBooking.getMember().getName());
+            }
+            
+            // Assign member and update status
+            persistentBooking.setBook(member);
+            persistentBooking.setStatus(Booking.Status.OCCUPIED);
+            
             db.getTransaction().commit();
-            System.out.println("[DataAccess] Booking set successfully for member: " + name);
+            logger.info("[DataAccess] Booking set successfully for member: " + name);
             
         } catch (Exception e) {
             if (db.getTransaction().isActive()) {
                  db.getTransaction().rollback();
             }
-            System.err.println("Error setting book: " + e.getMessage());
+            logger.error("Error setting book: " + e.getMessage());
             throw e;
         }
+    }
+    
+    /**
+     * Helper method to find a booking by court, date and hour.
+     * @param court The court
+     * @param date The date
+     * @param hour The starting hour
+     * @return The booking if found, null otherwise
+     */
+    private Booking findBookingByCourtDateHour(Court court, Date date, int hour) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        int year = cal.get(Calendar.YEAR);
+        int month = cal.get(Calendar.MONTH) + 1; // Calendar months are 0-based
+        int day = cal.get(Calendar.DAY_OF_MONTH);
+        
+        String nativeQuery = "SELECT * FROM Booking b WHERE b.court_id = ? " +
+                            "AND b.startingHour = ? " +
+                            "AND YEAR(b.date) = ? " +
+                            "AND MONTH(b.date) = ? " +
+                            "AND DAY(b.date) = ?";
+        
+        @SuppressWarnings("unchecked")
+        List<Booking> existingBookings = db.createNativeQuery(nativeQuery, Booking.class)
+            .setParameter(1, court.getId())
+            .setParameter(2, hour)
+            .setParameter(3, year)
+            .setParameter(4, month)
+            .setParameter(5, day)
+            .getResultList();
+            
+        return existingBookings.isEmpty() ? null : existingBookings.get(0);
     }
 
     /**
@@ -371,18 +378,15 @@ public class DataAccess {
      * @return A list of bookings for that court and date.
      */
     public List<Booking> getBookingsByCourtAndDate(Court court, Date date) {
-        System.out.println("[DataAccess] Fetching bookings for Court #: " + court.getNumber() + " on Date: " + date);
+        logger.info("[DataAccess] Fetching bookings for Court #: " + court.getNumber() + " on Date: " + date);
 
-        // Create a new EntityManager specifically for this query to avoid connection issues
-        EntityManager localEm = null;
         try {
-            if (emf == null || !emf.isOpen()) {
-                System.err.println("[DataAccess] EntityManagerFactory is not available. Cannot query bookings.");
+            if (db == null || !db.isOpen()) {
+                logger.error("[DataAccess] EntityManager is not available. Cannot query bookings.");
                 return Collections.emptyList();
             }
             
-            localEm = emf.createEntityManager();
-            localEm.getTransaction().begin();
+            db.getTransaction().begin();
             
             // Extract year, month, day from the input date
             Calendar cal = Calendar.getInstance();
@@ -396,7 +400,7 @@ public class DataAccess {
                          "AND YEAR(b.date) = ? AND MONTH(b.date) = ? AND DAY(b.date) = ?";
             
             @SuppressWarnings("unchecked")
-            List<Booking> bookings = localEm.createNativeQuery(sql, Booking.class)
+            List<Booking> bookings = db.createNativeQuery(sql, Booking.class)
                 .setParameter(1, court.getNumber())
                 .setParameter(2, year)
                 .setParameter(3, month)
@@ -404,13 +408,13 @@ public class DataAccess {
                 .getResultList();
             
             // Commit transaction
-            localEm.getTransaction().commit();
+            db.getTransaction().commit();
             
-            System.out.println("[DataAccess] Found " + bookings.size() + " bookings for Court #" + court.getNumber() + " on " + date);
+            logger.info("[DataAccess] Found " + bookings.size() + " bookings for Court #" + court.getNumber() + " on " + date);
             
             // Debug output
             for (Booking b : bookings) {
-                System.out.println("[DataAccess]   - Booking: ID=" + b.getId() + 
+                logger.info("[DataAccess]   - Booking: ID=" + b.getId() + 
                                    ", Hour=" + b.getStartingHour() + 
                                    ", Status=" + b.getStatus() + 
                                    ", Member=" + (b.getMember() != null ? b.getMember().getName() : "null"));
@@ -418,17 +422,12 @@ public class DataAccess {
             
             return bookings;
         } catch (Exception e) {
-            System.err.println("[DataAccess] Error fetching bookings: " + e.getMessage());
+            logger.error("Error fetching bookings: " + e.getMessage());
             e.printStackTrace();
-            if (localEm != null && localEm.getTransaction().isActive()) {
-                localEm.getTransaction().rollback();
+            if (db != null && db.getTransaction().isActive()) {
+                db.getTransaction().rollback();
             }
             return Collections.emptyList();
-        } finally {
-            if (localEm != null && localEm.isOpen()) {
-                localEm.close();
-                System.out.println("[DataAccess] Local EntityManager closed");
-            }
         }
     }
 
@@ -439,18 +438,15 @@ public class DataAccess {
      * @return A list of free bookings for that court and date.
      */
     public List<Booking> getFreeBookingsByCourtAndDate(Court court, Date date) {
-        System.out.println("[DataAccess] Fetching FREE bookings for Court #: " + court.getNumber() + " on Date: " + date);
+        logger.info("Fetching FREE bookings for Court #: " + court.getNumber() + " on Date: " + date);
 
-        // Create a new EntityManager specifically for this query to avoid connection issues
-        EntityManager localEm = null;
         try {
-            if (emf == null || !emf.isOpen()) {
-                System.err.println("[DataAccess] EntityManagerFactory is not available. Cannot query bookings.");
+            if (db == null || !db.isOpen()) {
+                logger.error("[DataAccess] EntityManager is not available. Cannot query bookings.");
                 return Collections.emptyList();
             }
             
-            localEm = emf.createEntityManager();
-            localEm.getTransaction().begin();
+            db.getTransaction().begin();
             
             // Extract year, month, day from the input date
             Calendar cal = Calendar.getInstance();
@@ -465,7 +461,7 @@ public class DataAccess {
                          "AND b.status = 0"; // 0 is the ordinal value for Status.FREE
             
             @SuppressWarnings("unchecked")
-            List<Booking> freeBookings = localEm.createNativeQuery(sql, Booking.class)
+            List<Booking> freeBookings = db.createNativeQuery(sql, Booking.class)
                 .setParameter(1, court.getNumber())
                 .setParameter(2, year)
                 .setParameter(3, month)
@@ -473,23 +469,18 @@ public class DataAccess {
                 .getResultList();
             
             // Commit transaction
-            localEm.getTransaction().commit();
+            db.getTransaction().commit();
             
-            System.out.println("[DataAccess] Found " + freeBookings.size() + " FREE bookings for Court #" + court.getNumber() + " on " + date);
+            logger.info("[DataAccess] Found " + freeBookings.size() + " FREE bookings for Court #" + court.getNumber() + " on " + date);
             
             return freeBookings;
         } catch (Exception e) {
-            System.err.println("[DataAccess] Error fetching free bookings: " + e.getMessage());
+            logger.error("Error fetching free bookings: " + e.getMessage());
             e.printStackTrace();
-            if (localEm != null && localEm.getTransaction().isActive()) {
-                localEm.getTransaction().rollback();
+            if (db != null && db.getTransaction().isActive()) {
+                db.getTransaction().rollback();
             }
             return Collections.emptyList();
-        } finally {
-            if (localEm != null && localEm.isOpen()) {
-                localEm.close();
-                System.out.println("[DataAccess] Local EntityManager closed");
-            }
         }
     }
 }

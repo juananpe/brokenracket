@@ -7,11 +7,6 @@ import eus.ehu.brokenracket.domain.Member;
 
 import java.util.Date;
 import java.util.List;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 
 /**
  * Implements the business logic as a web service.
@@ -44,9 +39,7 @@ public class BlFacadeImplementation implements BlFacade {
 	 * It is invoked only when the option "initialize" is declared in the tag dataBaseOpenMode of resources/config.xml file
 	 */
 	public void initializeBD(){
-		dbManager.open(false);
 		dbManager.initializeDB();
-		dbManager.close();
 	}
 
 	@Override
@@ -62,16 +55,12 @@ public class BlFacadeImplementation implements BlFacade {
 			}
 		};
 
-		dbManager.open(false);
 		dbManager.createInvoice(member, total, month, year);
-		dbManager.close();
 	}
 
 	@Override
 	public List<Court> getCourts() {
-		dbManager.open(false);
 		List<Court> result = dbManager.getCourts();
-		dbManager.close();
 
 		return result;
 	}
