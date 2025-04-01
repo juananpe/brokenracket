@@ -19,7 +19,7 @@ public class H2WebLauncher {
             System.out.println("Press Ctrl+C to stop the server...");
             
             // Optional: If you want to also start a TCP server for other applications to connect
-            Server tcpServer = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", "9092").start();
+            /* Server tcpServer = */ Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", "9092").start();
             System.out.println("H2 TCP server started on port 9092.");
             
         } catch (Exception e) {

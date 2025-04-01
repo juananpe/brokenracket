@@ -40,4 +40,35 @@ public class Invoice {
     this.number = id;
   }
 
+  public Date getDate() {
+    return date;
+  }
+
+  public void setDate(Date date) {
+    this.date = date;
+  }
+
+  public Status getStatus() {
+    return status;
+  }
+
+  public void setStatus(Status status) {
+    this.status = status;
+  }
+
+  public float getAmount() {
+    return amount;
+  }
+
+  public void setAmount(float amount) {
+    this.amount = amount;
+  }
+
+  public Member getMember() {
+    return member;
+  }
+
+  public void setMember(Member member) {
+    this.member = member;
+  }
 }
