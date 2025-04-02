@@ -106,10 +106,6 @@ public class AppConfig {
         return Boolean.parseBoolean(getProperty("dataAccess.isLocal", "true"));
     }
 
-    public String getDataBaseFilename() {
-        return getProperty("dataBase.filename");
-    }
-
     public String getDataBaseOpenMode() {
         return getProperty("dataBase.openMode", "open"); // Default to 'open'
     }

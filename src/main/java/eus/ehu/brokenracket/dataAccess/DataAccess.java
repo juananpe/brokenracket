@@ -140,7 +140,7 @@ public class DataAccess {
 
     private void generateTestingData() {
         // This method using db.persist() is standard JPA and should work fine
-        Member oihane = new Member("Oihane", "c/ Melancolía 13", "678012345");
+        Member ane = new Member("ane", "c/ Melancolía 13", "678012345");
         Member aitor = new Member("Aitor", "c/ Esperanza 14", "678999999");
 
         // initialize courts
@@ -159,10 +159,10 @@ public class DataAccess {
             for (int day = 1; day < 30; day++) {
                 for (int hour = 9; hour < 18; hour++) {
                     Booking booking;
-                    // Oihane wants to book a court for April/27 and April/28
+                    // ane wants to book a court for April/27 and April/28
                     if ((court == 0 && ((day == 27 && hour == 15) || (day == 28 && hour == 10))) ||
                         (court == 1 && day == 27 && hour == 16)) {
-                         booking = new Booking(UtilDate.newDate(2025, 4, day), hour, courts[court], oihane);
+                         booking = new Booking(UtilDate.newDate(2025, 4, day), hour, courts[court], ane);
                          
                          // Debug for April 27
                          if (day == 27) {
@@ -176,12 +176,12 @@ public class DataAccess {
             }
         }
 
-        db.persist(oihane);
+        db.persist(ane);
         db.persist(aitor);
         
         // Print debug info for April 27 bookings
         logger.info("\n=== INITIALIZATION: APRIL 27, 2025 BOOKINGS ===");
-        logger.info("Bookings created for Oihane: " + apr27Bookings);
+        logger.info("Bookings created for ane: " + apr27Bookings);
         logger.info("Expected occupied slots for April 27: Court 0, Hour 15 and Court 1, Hour 16");
         logger.info("=================================================\n");
         
@@ -253,11 +253,11 @@ public class DataAccess {
             try {
                  TypedQuery<Member> memberQuery = da.db.createQuery(
                     "SELECT m FROM Member m WHERE m.name = ?1", Member.class);
-                 memberQuery.setParameter(1, "Oihane"); // Example name
-                 Member oihane = memberQuery.getSingleResult();
-                 logger.info("Found member: " + oihane.getName());
+                 memberQuery.setParameter(1, "ane"); // Example name
+                 Member ane = memberQuery.getSingleResult();
+                 logger.info("Found member: " + ane.getName());
             } catch (NoResultException e) {
-                 logger.info("Member 'Oihane' not found (maybe DB not initialized?).");
+                 logger.info("Member 'ane' not found (maybe DB not initialized?).");
             }
 
         } catch(Exception e) {
@@ -274,6 +274,64 @@ public class DataAccess {
         TypedQuery<Court> query = db.createQuery(
             "SELECT c FROM Court c", Court.class);
         return query.getResultList();
+    }
+
+    /**
+     * Retrieves a specific court by ID
+     * @param courtId The court ID to find
+     * @return The Court entity or null if not found
+     */
+    public Court getCourtById(Integer courtId) {
+        return db.find(Court.class, courtId);
+    }
+
+    /**
+     * Persists a court entity and its associated bookings (via cascade)
+     * @param court The court to persist
+     */
+    public void persistCourt(Court court) {
+        logger.info("Persisting court: " + court.getId());
+        db.getTransaction().begin();
+        try {
+            db.persist(court); // Will cascade to bookings due to CascadeType.PERSIST
+            db.getTransaction().commit();
+            logger.info("Court persisted successfully");
+        } catch (Exception e) {
+            if (db.getTransaction().isActive()) {
+                db.getTransaction().rollback();
+            }
+            logger.error("Error persisting court: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Removes a court entity from the database
+     * @param court The court to remove
+     */
+    public void removeCourt(Court court) {
+        logger.info("Removing court: " + court.getId());
+        db.getTransaction().begin();
+        try {
+            // Find the managed entity
+            Court managedCourt = db.find(Court.class, court.getId());
+            if (managedCourt != null) {
+                // For each booking associated with the court, remove it
+                for (Booking booking : new ArrayList<>(managedCourt.getBookings())) {
+                    db.remove(booking);
+                }
+                // Remove the court
+                db.remove(managedCourt);
+            }
+            db.getTransaction().commit();
+            logger.info("Court removed successfully");
+        } catch (Exception e) {
+            if (db.getTransaction().isActive()) {
+                db.getTransaction().rollback();
+            }
+            logger.error("Error removing court: " + e.getMessage());
+            throw e;
+        }
     }
 
     public void setBook(String name, Booking book) {

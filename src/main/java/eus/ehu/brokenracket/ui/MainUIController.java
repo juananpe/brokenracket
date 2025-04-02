@@ -44,7 +44,7 @@ public class MainUIController {
 
     // --- Simulate logged-in user --- 
     // In a real app, this would come from a login service
-    private String loggedInMemberName = "Oihane"; // Example logged-in user
+    private String loggedInMemberName = "ane"; // Example logged-in user
     // You could also potentially store the full Member object if needed
     // private Member loggedInMember;
     // --- End simulation ---
