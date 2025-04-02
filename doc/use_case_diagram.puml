@@ -17,7 +17,6 @@ User <|-- Employee
 
 rectangle "Tennis court booking system" {
   usecase "Login" as UC1
-  ' Apply the Highlighted stereotype to this use case
   usecase " " as UC2 <<Book Court>>
   usecase "Cancel Booking" as UC3
   usecase "Print Invoices" as UC4
