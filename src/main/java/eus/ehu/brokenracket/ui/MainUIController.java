@@ -142,6 +142,15 @@ public class MainUIController {
             return;
         }
 
+        // Check if selected date is within one month from current date
+        LocalDate currentDate = LocalDate.now();
+        LocalDate oneMonthLater = currentDate.plusMonths(1);
+        
+        if (localDate.isAfter(oneMonthLater)) {
+            statusLabel.setText("Error: Date must be within one month from today.");
+            return;
+        }
+
         Instant instant = Instant.from(localDate.atStartOfDay(ZoneId.systemDefault()));
         Date selectedDate = Date.from(instant);
 

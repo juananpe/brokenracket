@@ -7,6 +7,7 @@ import eus.ehu.brokenracket.domain.Member;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Calendar;
 
 /**
  * Implements the business logic as a web service.
@@ -68,6 +69,9 @@ public class BlFacadeImplementation implements BlFacade {
 	@Override
 	public List<Booking> getFreeBooks(Court court, Date bookDate) {
 		System.out.println("[Facade] Getting free books for Court #: " + court.getNumber() + " on Date: " + bookDate);
+
+		// We should Validate that booking date is within a month from current date
+		// This would ensure that the validation happens even if someone tries to bypass the UI validation
 
 		// Simplified approach: directly get free bookings from the database
 		List<Booking> freeBookings = dbManager.getFreeBookingsByCourtAndDate(court, bookDate);
