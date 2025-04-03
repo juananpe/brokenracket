@@ -187,12 +187,6 @@ public class DataAccess {
             }
         }
         
-        // Print debug info for April 27 bookings
-        logger.info("\n=== INITIALIZATION: APRIL 27, 2025 BOOKINGS ===");
-        logger.info("Bookings created for ane: " + apr27Bookings);
-        logger.info("Expected occupied slots for April 27: Court 0, Hour 15 and Court 1, Hour 16");
-        logger.info("=================================================\n");
-        
         logger.info("Finished persisting test data.");
     }
 

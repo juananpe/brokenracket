@@ -85,7 +85,9 @@ public class MainUIController {
             }
         });
 
+        // Load courts from database
         loadCourts();
+        
         datePicker.setValue(LocalDate.now());
 
         // --- Pre-fill and disable member name input --- 
@@ -104,28 +106,33 @@ public class MainUIController {
         // Clear any existing courts
         courtList.clear();
 
-        // Create and add 5 Court objects
-        for (int i = 1; i <= 5; i++) {
-            // Assuming Court has a constructor that takes an integer number
-            // or some way to set its number. Adjust if the constructor is different.
-             try {
-                 // You might need to adjust the Court constructor call based on its actual definition
-                 courtList.add(new Court(i)); 
-             } catch (Exception e) {
-                 // Handle potential issues with Court creation if necessary
-                 // For now, print an error and potentially add a placeholder or skip
-                 System.err.println("Error creating Court object for number " + i + ": " + e.getMessage());
-                 // Optionally add a placeholder or handle differently
-                 // courtList.add(new Court(i, "Unavailable")); // Example placeholder if needed
-             }
-        }
-
-        // Select the first court by default if the list is not empty
-        if (!courtList.isEmpty()) {
+        try {
+            // Get courts from the business logic layer
+            List<Court> courts = blFacade.getCourts();
+            
+            // If no courts returned, show error message
+            if (courts == null || courts.isEmpty()) {
+                statusLabel.setText("Error: No courts available in the system.");
+                return;
+            }
+            
+            // Add all courts to the observable list
+            courtList.addAll(courts);
+            
+            // Select the first court by default
             courtComboBox.getSelectionModel().selectFirst();
+            
+            // Log details about loaded courts
+            System.out.println("[UI] Loaded " + courtList.size() + " courts from database:");
+            for (Court court : courtList) {
+                System.out.println("[UI]   - Court #" + court.getNumber());
+            }
+        } catch (Exception e) {
+            // Handle potential issues with court retrieval
+            System.err.println("Error loading courts from database: " + e.getMessage());
+            e.printStackTrace();
+            statusLabel.setText("Error loading courts. Please try again later.");
         }
-        // Optionally, update the status label if needed, though likely not necessary here
-        // statusLabel.setText("Loaded 5 courts."); 
     }
 
     @FXML
