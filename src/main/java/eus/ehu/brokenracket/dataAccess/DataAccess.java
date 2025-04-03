@@ -140,8 +140,19 @@ public class DataAccess {
 
     private void generateTestingData() {
         // This method using db.persist() is standard JPA and should work fine
+        logger.debug("Creating member entities...");
         Member ane = new Member("ane", "c/ Melancolía 13", "678012345");
         Member aitor = new Member("Aitor", "c/ Esperanza 14", "678999999");
+
+        // Persist members first to ensure they have IDs before being referenced
+        logger.debug("Persisting member ane: " + ane.getName());
+        db.persist(ane);
+        logger.debug("Persisting member aitor: " + aitor.getName());
+        db.persist(aitor);
+        
+        // Ensure members are flushed to the database immediately
+        logger.debug("Flushing entities to database to ensure they are saved...");
+        db.flush();
 
         // initialize courts
         final int COURTNUM = 5;
@@ -175,9 +186,6 @@ public class DataAccess {
                 }
             }
         }
-
-        db.persist(ane);
-        db.persist(aitor);
         
         // Print debug info for April 27 bookings
         logger.info("\n=== INITIALIZATION: APRIL 27, 2025 BOOKINGS ===");
@@ -338,7 +346,7 @@ public class DataAccess {
         Member member = null;
         try {
              TypedQuery<Member> memberQuery = db.createQuery(
-                "SELECT m FROM Member m WHERE m.name = ?1", Member.class);
+                "SELECT m FROM Member m WHERE LOWER(m.name) = LOWER(?1)", Member.class);
              memberQuery.setParameter(1, name);
              member = memberQuery.getSingleResult();
         } catch (NoResultException e) {

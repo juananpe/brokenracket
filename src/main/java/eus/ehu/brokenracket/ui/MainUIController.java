@@ -145,18 +145,10 @@ public class MainUIController {
         Instant instant = Instant.from(localDate.atStartOfDay(ZoneId.systemDefault()));
         Date selectedDate = Date.from(instant);
 
-        // Check if this is April 27, 2025 - our test date
+    
         Calendar cal = Calendar.getInstance();
         cal.setTime(selectedDate);
-        boolean isApril27 = cal.get(Calendar.YEAR) == 2025 && 
-                          cal.get(Calendar.MONTH) == Calendar.APRIL &&
-                          cal.get(Calendar.DAY_OF_MONTH) == 27;
-        
-        if (isApril27) {
-            System.out.println("\n=== UI: APRIL 27, 2025 SEARCH ===");
-            System.out.println("UI: Searching for slots on April 27, 2025, Court #" + selectedCourt.getNumber());
-            System.out.println("=================================\n");
-        }
+      
 
         try {
             System.out.println("[UI] Finding free slots for Court #: " + selectedCourt.getNumber() + " on Date: " + selectedDate);
@@ -164,13 +156,6 @@ public class MainUIController {
             List<Booking> freeSlots = blFacade.getFreeBooks(selectedCourt, selectedDate);
             System.out.println("[UI] Received " + freeSlots.size() + " free slots from facade.");
             
-            if (isApril27) {
-                System.out.println("[UI] === FREE SLOTS DETAILS FOR APRIL 27 ===");
-                for (Booking slot : freeSlots) {
-                    System.out.println("  Free Slot: Hour " + slot.getStartingHour() + ", ID: " + slot.getId());
-                }
-                System.out.println("[UI] =======================================");
-            }
             
             bookingList.setAll(freeSlots);
             statusLabel.setText(freeSlots.isEmpty() ? "No free slots found." : "Found " + freeSlots.size() + " free slots.");
